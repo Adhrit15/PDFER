@@ -6,13 +6,9 @@ services:
     plan: free
     healthCheckPath: /
     envVars:
+      # Both values are entered in the Render dashboard and never stored in the repo.
       - key: GEMINI_API_KEY
-        sync: false   # Render asks for this when you deploy; it is never stored in the repo
+        sync: false
+      # Postgres connection string from a free Neon project (neon.tech), which does not expire.
       - key: DATABASE_URL
-        fromDatabase:
-          name: pdfer-db
-          property: connectionString
-
-databases:
-  - name: pdfer-db
-    plan: free
+        sync: false
