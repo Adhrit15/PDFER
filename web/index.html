@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDFer — read less, know more</title>
+<meta name="description" content="Drop in up to five PDFs and get summaries, answers and study aids, every claim linked to its page.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2317150f'/%3E%3Crect x='6' y='17' width='20' height='8' fill='%23ffd84a'/%3E%3Ctext x='16' y='23' font-family='Arial' font-weight='900' font-size='15' text-anchor='middle' fill='%2317150f'%3EP%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("pdfer-theme"); } catch (e) {}
+    if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = t;
+  })();
+</script>
+</head>
+<body>
+
+<header class="top">
+  <a class="logo" href="/" aria-label="PDFer home">PDF<span>er</span></a>
+  <p class="tagline">read less, know more</p>
+  <div class="top-right">
+    <span class="pill" id="deskCount" hidden></span>
+    <button class="icon-btn" id="themeBtn" title="Switch light / dark" aria-label="Switch light or dark theme">◐</button>
+  </div>
+</header>
+
+<main class="app is-empty" id="app" data-tab="chat">
+
+  <!-- Shown until the first PDF is added -->
+  <section class="hero" id="hero">
+    <div class="hero-copy">
+      <h1>Drop a PDF.<br>Keep the <mark>good bits</mark>.</h1>
+      <p class="lede">Put up to <b id="heroMax">5</b> PDFs on your desk, then ask anything or hit a shortcut.
+        Every answer points at the page it came from, so you can check it in one click.</p>
+      <button class="dropzone" id="heroDrop" type="button">
+        <span class="dz-plus">+</span>
+        <span class="dz-main">Choose PDFs <i>or drop them anywhere</i></span>
+        <span class="dz-sub" id="heroLimits">up to 25 MB each · scanned pages are read too</span>
+      </button>
+      <ol class="steps">
+        <li><b>Add</b> contracts, papers, reports, manuals, statements.</li>
+        <li><b>Tap a shortcut</b> or type a question. Type <kbd>/</kbd> to see them all.</li>
+        <li><b>Click a page tag</b> like <span class="cite demo" style="--c:var(--d1)">D1·4</span> to jump to the source.</li>
+      </ol>
+    </div>
+    <div class="hero-side" aria-hidden="true">
+      <p class="side-title">One-click shortcuts</p>
+      <div class="hero-actions" id="heroActions"></div>
+      <p class="margin-note">no sign-up needed<br>to try it ↗</p>
+    </div>
+  </section>
+
+  <aside class="shelf" id="shelf">
+    <div class="panel-head">
+      <h2>Your desk</h2>
+      <span class="mono" id="slots"></span>
+    </div>
+    <ul class="docs" id="docs"></ul>
+    <button class="add-doc" id="addDoc" type="button">+ Add PDF</button>
+    <p class="shelf-tip">Drop files anywhere on the page. Remove one to free a slot.</p>
+  </aside>
+
+  <section class="reader" id="reader">
+    <div class="reader-bar">
+      <span class="tag" id="readerTag"></span>
+      <span class="reader-name" id="readerName"></span>
+      <span class="spacer"></span>
+      <span class="mono" id="readerPage"></span>
+      <button class="icon-btn sm" id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+      <button class="icon-btn sm" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+    </div>
+    <div class="pages" id="pages"></div>
+  </section>
+
+  <section class="chat" id="chat">
+    <div class="panel-head">
+      <h2>Ask</h2>
+      <span class="spacer"></span>
+      <button class="text-btn" id="exportBtn" title="Download this conversation as Markdown">Export</button>
+      <button class="text-btn" id="clearBtn" title="Delete this conversation">Clear</button>
+    </div>
+
+    <div class="messages" id="messages" aria-live="polite"></div>
+
+    <div class="strip" id="strip"></div>
+
+    <form class="composer" id="composer">
+      <div class="slash" id="slash" hidden></div>
+      <div class="composer-main">
+        <textarea id="input" rows="1" placeholder="Ask about your PDFs, or type / for shortcuts" maxlength="4000"></textarea>
+        <button class="send" id="send" type="submit" aria-label="Send">↑</button>
+      </div>
+      <div class="composer-row">
+        <label class="ctl" title="Which PDFs to read">
+          <span>Read</span>
+          <select id="scope"></select>
+        </label>
+        <div class="seg" id="style" role="radiogroup" aria-label="Answer length">
+          <button type="button" data-v="brief" role="radio">Brief</button>
+          <button type="button" data-v="balanced" role="radio" class="on">Balanced</button>
+          <button type="button" data-v="deep" role="radio">Deep</button>
+        </div>
+        <label class="toggle" title="On: answers come only from your PDFs. Off: general knowledge may be added, clearly marked.">
+          <input type="checkbox" id="strict" checked>
+          <span>PDF only</span>
+        </label>
+      </div>
+    </form>
+  </section>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="shelf">Desk</button>
+    <button data-tab="reader">Read</button>
+    <button data-tab="chat">Ask</button>
+  </nav>
+</main>
+
+<div class="drop-veil" id="veil"><div>Drop to add to your desk</div></div>
+<div class="toasts" id="toasts"></div>
+<input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
