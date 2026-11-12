@@ -117,7 +117,11 @@ def identify(request: Request, desk: str | None = None) -> Who:
     desk = desk or desk_cookie(request)
     if not desk:
         raise HTTPException(401, "Reload the page to start a session.")
-    return Who("g:" + desk, "ip:" + client_ip(request), None, config.GUEST_LIMITS)
+    ip = client_ip(request)
+    # Behind a tunnel that hides visitor addresses everyone looks like loopback,
+    # so count per browser instead of letting all guests share one allowance.
+    usage_key = "d:" + desk if ip in ("127.0.0.1", "::1") else "ip:" + ip
+    return Who("g:" + desk, usage_key, None, config.GUEST_LIMITS)
 
 
 def who(request: Request) -> Who:
