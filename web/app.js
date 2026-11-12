@@ -16,13 +16,20 @@ const THINKING = ["Reading the pages…", "Skimming the footnotes…", "Checking
 const state = {
   docs: [], messages: [], actions: [], limits: { docs: 5, file_mb: 25, pages: 400 },
   pending: [], active: null, busy: false, abort: null, style: "balanced",
+  user: null, usage: null, accountLimits: null,
 };
 
 const app = $("#app"), messagesEl = $("#messages"), input = $("#input"), slash = $("#slash");
 
 // ---------- helpers ----------
 
-async function api(path, opts) {
+function ownKey() {
+  try { return localStorage.getItem("pdfer-key") || ""; } catch { return ""; }
+}
+
+async function api(path, opts = {}) {
+  const key = ownKey();
+  if (key) opts = { ...opts, headers: { ...opts.headers, "X-Gemini-Key": key } };
   const res = await fetch(path, opts);
   if (!res.ok) {
     let msg = "Something went wrong. Try again.";
@@ -60,9 +67,6 @@ function renderDesk() {
   const { docs, pending, limits } = state;
   app.classList.toggle("is-empty", !docs.length && !pending.length);
   $("#slots").textContent = `${docs.length}/${limits.docs}`;
-  const count = $("#deskCount");
-  count.hidden = !docs.length;
-  count.textContent = `${docs.length} of ${limits.docs} PDFs`;
   $("#addDoc").disabled = docs.length + pending.length >= limits.docs;
 
   const list = $("#docs");
@@ -120,18 +124,24 @@ async function addFiles(files) {
     try {
       const form = new FormData();
       form.append("file", f);
-      const doc = await (await api("/api/docs", { method: "POST", body: form })).json();
+      const { doc, usage } = await (await api("/api/docs", { method: "POST", body: form })).json();
+      setUsage(usage);
       state.docs.push(doc);
       state.docs.sort((a, b) => a.tag - b.tag);
-      first ??= doc;
+      if (!first) { first = doc; openDoc(doc.id); }
       if (doc.thin) toast(`“${doc.name}” has very little readable text, so answers may be thin.`);
     } catch (e) {
-      toast(`${f.name}: ${e.message}`);
+      if (e.status === 429 && !state.user) openAccount(e.message);
+      else toast(`${f.name}: ${e.message}`);
+      if (e.status === 429) {  // out of allowance: no point trying the rest
+        state.pending = [];
+        renderDesk();
+        break;
+      }
     }
     state.pending.splice(state.pending.indexOf(f.name), 1);
     renderDesk();
   }
-  if (first) openDoc(first.id);
   if (!state.messages.length) renderMessages();
 }
 
@@ -486,7 +496,7 @@ async function send({ text = "", action = null }) {
       for (const l of lines) {
         if (!l.trim()) continue;
         const ev = JSON.parse(l);
-        if (ev.type === "meta") { aiMsg.tags = ev.tags; aiMsg.trimmed = ev.trimmed; }
+        if (ev.type === "meta") { aiMsg.tags = ev.tags; aiMsg.trimmed = ev.trimmed; setUsage(ev.usage); }
         else if (ev.type === "delta") { raw += ev.text; clearInterval(ticker); frame ||= requestAnimationFrame(paint); }
         else if (ev.type === "done") aiMsg.followups = ev.followups || [];
         else if (ev.type === "error") failed = ev.message;
@@ -503,7 +513,8 @@ async function send({ text = "", action = null }) {
       aiNode.remove();
       if (!state.messages.length) renderMessages();
       input.value = text;
-      return toast(e.message);
+      autosize();
+      return e.status === 429 && !state.user ? openAccount(e.message) : toast(e.message);
     } else failed = "The connection dropped. Check that the server is running and try again.";
   }
 
@@ -652,12 +663,122 @@ $("#tabs").addEventListener("click", (e) => {
   setTab(b.dataset.tab);
 });
 
+// ---------- account + daily allowance ----------
+
+const sheet = $("#account");
+let authMode = "signup";
+
+function setUsage(usage) {
+  if (!usage) return;
+  state.usage = usage;
+  renderAccount();
+}
+
+function renderAccount() {
+  const { user, usage, accountLimits } = state;
+  const btn = $("#accountBtn");
+  btn.hidden = false;
+  btn.textContent = user ? user.name.trim()[0] : "Sign in";
+  btn.classList.toggle("me", !!user);
+  btn.title = user ? `${user.name} · account and allowance` : "Sign in or create a free account";
+
+  if (usage) {
+    const pill = $("#usagePill"), left = usage.pdfs.limit - usage.pdfs.used;
+    pill.hidden = false;
+    pill.textContent = `${Math.max(0, left)} of ${usage.pdfs.limit} PDFs left today`;
+    pill.classList.toggle("low", left <= 0);
+    const rows = [["PDFs", usage.pdfs], ["Pages", usage.pages], ["Questions", usage.messages]];
+    $("#meters").replaceChildren(...rows.map(([name, u]) => {
+      const row = el("div", "meter" + (u.used >= u.limit ? " full" : ""));
+      const bar = el("i"), fill = el("b");
+      fill.style.width = Math.min(100, (u.used / u.limit) * 100) + "%";
+      bar.append(fill);
+      row.append(el("span", null, name), bar, el("span", null, `${u.used}/${u.limit}`));
+      return row;
+    }));
+  }
+
+  $("#guestPane").hidden = !!user;
+  $("#userPane").hidden = !user;
+  if (user) {
+    $("#hello").textContent = `Hi, ${user.name.split(" ")[0]}`;
+    $("#userEmail").textContent = user.email;
+  } else if (accountLimits) {
+    $("#guestLede").textContent = `A free account gets ${accountLimits.pdfs} PDFs and ${accountLimits.messages} ` +
+      `questions a day, and your desk follows you to any device. What is on your desk now comes along.`;
+  }
+  $("#ownKey").value = ownKey();
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  for (const b of $("#authMode").children) b.classList.toggle("on", b.dataset.v === mode);
+  const signup = mode === "signup";
+  $("#nameField").hidden = $("#passHint").hidden = !signup;
+  $("#authPass").autocomplete = signup ? "new-password" : "current-password";
+  $("#authSubmit").textContent = signup ? "Create free account" : "Sign in";
+  $("#authError").hidden = true;
+}
+
+function openAccount(alert) {
+  const box = $("#guestAlert");
+  box.hidden = !alert;
+  box.textContent = alert || "";
+  if (!sheet.open) sheet.showModal();
+}
+
+$("#accountBtn").onclick = () => openAccount();
+$("#usagePill").onclick = () => openAccount();
+$("#accountClose").onclick = () => sheet.close();
+sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.close(); });
+$("#authMode").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (b) setAuthMode(b.dataset.v);
+});
+
+$("#authForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = $("#authError"), submit = $("#authSubmit");
+  const body = { email: $("#authEmail").value, password: $("#authPass").value };
+  if (authMode === "signup") body.name = $("#authName").value;
+  submit.disabled = true;
+  err.hidden = true;
+  try {
+    await api(`/api/auth/${authMode}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    location.reload();
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.hidden = false;
+    submit.disabled = false;
+  }
+});
+
+$("#logoutBtn").onclick = async () => {
+  try { await api("/api/auth/logout", { method: "POST" }); } catch { /* reload anyway */ }
+  location.reload();
+};
+
+$("#saveKey").onclick = () => {
+  const key = $("#ownKey").value.trim();
+  if (key && !/^[\w-]{20,100}$/.test(key)) return toast("That does not look like a Gemini API key.");
+  try {
+    if (key) localStorage.setItem("pdfer-key", key); else localStorage.removeItem("pdfer-key");
+    toast(key ? "Saved. Your questions now use your own key." : "Key removed.");
+  } catch { toast("This browser would not save the key."); }
+};
+
 // ---------- boot ----------
 
 async function boot() {
   try {
     const data = await (await api("/api/state")).json();
-    Object.assign(state, { docs: data.docs, messages: data.messages, actions: data.actions, limits: data.limits });
+    Object.assign(state, {
+      docs: data.docs, messages: data.messages, actions: data.actions, limits: data.limits,
+      user: data.user, usage: data.usage, accountLimits: data.account_limits,
+    });
+    renderAccount();
     $("#heroMax").textContent = data.limits.docs;
     $("#heroLimits").textContent = `up to ${data.limits.file_mb} MB each · scanned pages are read too`;
     $("#heroActions").replaceChildren(...state.actions.map((a) => chip(a, "span")));

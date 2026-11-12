@@ -38,5 +38,14 @@ CONTEXT_CHARS = _int("CONTEXT_CHARS", 400_000)  # ~100k tokens sent to the model
 HISTORY_TURNS = _int("HISTORY_TURNS", 8)
 AI_TIMEOUT = _int("AI_TIMEOUT", 180)                  # seconds, whole request
 FIRST_TOKEN_TIMEOUT = _int("FIRST_TOKEN_TIMEOUT", 35)  # seconds before trying the next model
+OCR_TIMEOUT = _int("OCR_TIMEOUT", 60)                  # seconds per model for scanned PDFs
+
+# Daily allowances, reset at midnight UTC. Guests are visitors without an account (counted per IP).
+USER_LIMITS = {"pdfs": _int("USER_PDFS_PER_DAY", 5), "pages": _int("USER_PAGES_PER_DAY", 500),
+               "messages": _int("USER_MESSAGES_PER_DAY", 100)}
+GUEST_LIMITS = {"pdfs": _int("GUEST_PDFS_PER_DAY", 2), "pages": _int("GUEST_PAGES_PER_DAY", 100),
+                "messages": _int("GUEST_MESSAGES_PER_DAY", 15)}
+SESSION_DAYS = _int("SESSION_DAYS", 30)
+TRUST_PROXY = os.getenv("TRUST_PROXY", "0") == "1"  # read the visitor IP from X-Forwarded-For
 
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") == "1"  # set to 1 when served over HTTPS

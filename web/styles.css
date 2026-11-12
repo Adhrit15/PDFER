@@ -345,3 +345,52 @@ button.cite:hover { border-color: var(--line); transform: translateY(-1px); box-
   .doc-x { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* ---------- account ---------- */
+button.pill { background: var(--card); }
+button.pill:hover { background: var(--hi); color: #17150f; }
+button.pill.low { background: var(--hot); color: #fff; }
+.btn {
+  font: 700 13px var(--mono); padding: 7px 13px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card);
+  box-shadow: 2px 2px 0 var(--shadow); transition: transform .08s, box-shadow .08s; white-space: nowrap;
+}
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--shadow); }
+.btn:active { transform: translate(2px, 2px); box-shadow: none; }
+.btn.primary { background: var(--hi); color: #17150f; width: 100%; padding: 11px; font-size: 14px; }
+.btn:disabled { opacity: .5; pointer-events: none; }
+.btn.me { padding: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--hi); color: #17150f; text-transform: uppercase; }
+
+.sheet {
+  width: min(420px, calc(100vw - 28px)); max-height: calc(100vh - 40px); overflow: auto; padding: 26px 26px 22px;
+  background: var(--paper); color: var(--ink); border: 2px solid var(--line); border-radius: 18px; box-shadow: 8px 8px 0 var(--shadow);
+}
+.sheet::backdrop { background: rgb(15 14 10 / .55); }
+.sheet h2 { font: 800 34px/1 var(--display); letter-spacing: -.035em; }
+.sheet h2 mark { background: var(--hi); color: #17150f; padding: 0 .12em; display: inline-block; transform: rotate(-2deg); }
+.sheet-lede { color: var(--muted); margin: 8px 0 16px; }
+.sheet-alert { background: var(--hot); color: #fff; font-weight: 500; padding: 8px 12px; border-radius: 9px; margin-bottom: 14px; }
+.sheet-x { position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 7px; font-size: 20px; line-height: 1; color: var(--muted); }
+.sheet-x:hover { background: var(--sunk); color: var(--ink); }
+.seg.wide { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 14px; border-color: var(--line); }
+.seg.wide button { padding: 7px; font-size: 13px; }
+.seg.wide button + button { border-color: var(--line); }
+.sheet form { display: grid; gap: 10px; }
+.sheet label { display: grid; gap: 4px; font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.sheet input {
+  font: 400 15px var(--body); text-transform: none; letter-spacing: 0; padding: 9px 11px; width: 100%; min-width: 0;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 8px; outline: 0;
+}
+.sheet input:focus { box-shadow: 3px 3px 0 var(--hi); }
+.hint { font-size: 12.5px; color: var(--muted); margin-top: -4px; }
+.meters { margin-top: 20px; padding-top: 4px; border-top: 1.5px dashed var(--soft); }
+.meters .group-name span { text-transform: none; letter-spacing: 0; font-weight: 500; float: right; }
+.meter { display: grid; grid-template-columns: 76px 1fr auto; gap: 10px; align-items: center; margin: 7px 0; font: 500 12px var(--mono); }
+.meter i { height: 10px; border: 1.5px solid var(--line); border-radius: 99px; background: var(--card); overflow: hidden; display: block; }
+.meter i b { display: block; height: 100%; background: var(--hi); border-right: 1.5px solid var(--line); }
+.meter.full i b { background: var(--hot); }
+.own-key { margin-top: 16px; font-size: 13.5px; color: var(--muted); }
+.own-key summary { cursor: pointer; font: 700 12px var(--mono); color: var(--ink); }
+.own-key p { margin: 8px 0; }
+.own-key a { color: var(--ink); }
+.key-row { display: flex; gap: 8px; }
+@media (max-width: 860px) { #usagePill { display: none; } }

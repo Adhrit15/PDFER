@@ -91,7 +91,7 @@ def ocr(data: bytes, pages: int, api_key: str | None = None) -> list[str]:
             text = client.models.generate_content(
                 model=model, contents=contents,
                 config=types.GenerateContentConfig(
-                    temperature=0, http_options=types.HttpOptions(timeout=90_000))).text or ""
+                    temperature=0, http_options=types.HttpOptions(timeout=config.OCR_TIMEOUT * 1000))).text or ""
             break
         except errors.APIError as e:
             if getattr(e, "code", None) not in RETRY:
